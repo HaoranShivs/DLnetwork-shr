@@ -1,5 +1,7 @@
-import torch
-import torch.nn as nn
+# import torch
+import mindspore
+# import torch.nn as nn
+import mindspore.nn as nn
 from pointnet2_lib.pointnet2.pointnet2_modules import PointnetFPModule, PointnetSAModuleMSG
 from lib.config import cfg
 

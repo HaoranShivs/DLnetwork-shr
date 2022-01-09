@@ -1,5 +1,9 @@
-import torch.nn as nn
-import torch.nn.functional as F
+# import torch.nn as nn
+import mindspore.nn as nn
+import mindspore.common.initializer as init
+# import torch.nn.functional as F
+import mindspore.ops
+import mindspore.ops.BinaryCrossEntropy as BCE
 import numpy as np
 from lib.rpn.proposal_layer import ProposalLayer
 import pointnet2_lib.pointnet2.pytorch_utils as pt_utils
@@ -8,7 +12,7 @@ from lib.config import cfg
 import importlib
 
 
-class RPN(nn.Module):
+class RPN(nn.Cell):
     def __init__(self, use_xyz=True, mode='TRAIN'):
         super().__init__()
         self.training_mode = (mode == 'TRAIN')
@@ -25,7 +29,7 @@ class RPN(nn.Module):
         cls_layers.append(pt_utils.Conv1d(pre_channel, 1, activation=None))
         if cfg.RPN.DP_RATIO >= 0:
             cls_layers.insert(1, nn.Dropout(cfg.RPN.DP_RATIO))
-        self.rpn_cls_layer = nn.Sequential(*cls_layers)
+        self.rpn_cls_layer = nn.SequentialCell(*cls_layers)
 
         # regression branch
         per_loc_bin_num = int(cfg.RPN.LOC_SCOPE / cfg.RPN.LOC_BIN_SIZE) * 2
@@ -43,7 +47,7 @@ class RPN(nn.Module):
         reg_layers.append(pt_utils.Conv1d(pre_channel, reg_channel, activation=None))
         if cfg.RPN.DP_RATIO >= 0:
             reg_layers.insert(1, nn.Dropout(cfg.RPN.DP_RATIO))
-        self.rpn_reg_layer = nn.Sequential(*reg_layers)
+        self.rpn_reg_layer = nn.SequentialCell(*reg_layers)
 
         if cfg.RPN.LOSS_CLS == 'DiceLoss':
             self.rpn_cls_loss_func = loss_utils.DiceLoss(ignore_target=-1)
@@ -51,7 +55,7 @@ class RPN(nn.Module):
             self.rpn_cls_loss_func = loss_utils.SigmoidFocalClassificationLoss(alpha=cfg.RPN.FOCAL_ALPHA[0],
                                                                                gamma=cfg.RPN.FOCAL_GAMMA)
         elif cfg.RPN.LOSS_CLS == 'BinaryCrossEntropy':
-            self.rpn_cls_loss_func = F.binary_cross_entropy
+            self.rpn_cls_loss_func = BCE
         else:
             raise NotImplementedError
 
@@ -61,9 +65,11 @@ class RPN(nn.Module):
     def init_weights(self):
         if cfg.RPN.LOSS_CLS in ['SigmoidFocalLoss']:
             pi = 0.01
-            nn.init.constant_(self.rpn_cls_layer[2].conv.bias, -np.log((1 - pi) / pi))
+            constant_init = init.Constant(-np.log((1 - pi) / pi))
+            constant_init(self.rpn_cls_layer[2].conv.bias)
 
-        nn.init.normal_(self.rpn_reg_layer[-1].conv.weight, mean=0, std=0.001)
+        # init.normal_(self.rpn_reg_layer[-1].conv.weight, mean=0, std=0.001)
+        self.rpn_reg_layer[-1].conv.weight = init.initializer(init.normal_(mean=0, sigma=0.001), shape=self.rpn_reg_layer[-1].conv.weight.shape)
 
     def forward(self, input_data):
         """

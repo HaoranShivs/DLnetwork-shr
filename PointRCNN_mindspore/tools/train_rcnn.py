@@ -1,9 +1,9 @@
 import _init_path
 import mindspore
-import torch.optim as optim
-import torch.optim.lr_scheduler as lr_sched
-import torch.nn as nn
-from torch.utils.data import DataLoader
+# import torch.optim as optim
+# import torch.optim.lr_scheduler as lr_sched
+# import torch.nn as nn
+# from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 import os
 import argparse
